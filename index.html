@@ -1,0 +1,313 @@
+<!doctype html>
+
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CodeSocial – MVP</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- PrismJS (resaltado de sintaxis) -->
+  <link rel="stylesheet" href="https://unpkg.com/prismjs/themes/prism-tomorrow.css" />
+  <script src="https://unpkg.com/prismjs/prism.js"></script>
+  <script src="https://unpkg.com/prismjs/plugins/autoloader/prism-autoloader.min.js" data-autoloader-path="https://unpkg.com/prismjs/components/"></script>
+  <meta name="description" content="MVP tipo Facebook para publicar y compartir fragmentos de código con likes y búsqueda, sin backend (localStorage)."/>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <!-- Header -->
+  <header class="sticky top-0 z-30 backdrop-blur bg-slate-950/70 border-b border-slate-800">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center gap-3">
+      <div class="size-9 rounded-2xl bg-indigo-500/20 grid place-content-center">💻</div>
+      <h1 class="text-xl font-semibold tracking-tight">CodeSocial — MVP</h1>
+      <div class="ml-auto flex items-center gap-2">
+        <button id="exportBtn" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm">Exportar JSON</button>
+        <label class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm cursor-pointer">
+          Importar JSON
+          <input type="file" id="importInput" accept="application/json" class="hidden" />
+        </label>
+      </div>
+    </div>
+  </header>  <main class="max-w-6xl mx-auto p-4 grid lg:grid-cols-3 gap-6">
+    <!-- Formulario de nueva publicación -->
+    <section class="lg:col-span-1">
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 shadow-xl">
+        <h2 class="text-lg font-semibold mb-3">Publicar código</h2>
+        <form id="postForm" class="space-y-3">
+          <div>
+            <label class="block text-sm mb-1" for="title">Título</label>
+            <input id="title" type="text" required placeholder="Ej. Algoritmo de búsqueda binaria"
+                   class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block text-sm mb-1" for="language">Lenguaje</label>
+            <select id="language" class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2">
+              <option value="javascript">JavaScript</option>
+              <option value="python">Python</option>
+              <option value="java">Java</option>
+              <option value="c">C</option>
+              <option value="cpp">C++</option>
+              <option value="csharp">C#</option>
+              <option value="php">PHP</option>
+              <option value="go">Go</option>
+              <option value="rust">Rust</option>
+              <option value="ruby">Ruby</option>
+              <option value="kotlin">Kotlin</option>
+              <option value="swift">Swift</option>
+              <option value="ts">TypeScript</option>
+              <option value="sql">SQL</option>
+              <option value="markup">HTML</option>
+              <option value="css">CSS</option>
+              <option value="bash">Bash</option>
+              <option value="json">JSON</option>
+              <option value="yaml">YAML</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm mb-1" for="description">Descripción (opcional)</label>
+            <textarea id="description" rows="2" placeholder="Explica qué hace tu código..."
+                      class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2"></textarea>
+          </div>
+          <div>
+            <label class="block text-sm mb-1" for="code">Código</label>
+            <textarea id="code" rows="10" required placeholder="Pega aquí tu fragmento de código"
+                      class="w-full rounded-2xl bg-slate-900 border border-slate-800 px-3 py-2 font-mono text-sm"></textarea>
+          </div>
+          <button type="submit" class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 py-2 font-medium">Publicar</button>
+        </form>
+        <p class="text-xs text-slate-400 mt-3">Este MVP guarda los datos en tu navegador (localStorage). Para compartir con otros usuarios, necesitarás un backend (Firebase, Supabase, o tu API).</p>
+      </div>
+    </section><!-- Feed y filtros -->
+<section class="lg:col-span-2 space-y-3">
+  <div class="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+    <div class="flex flex-col md:flex-row gap-3 md:items-center">
+      <div class="flex-1">
+        <input id="search" type="text" placeholder="Buscar por título, descripción o código..." class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2" />
+      </div>
+      <div class="flex items-center gap-2">
+        <select id="filterLang" class="rounded-xl bg-slate-800 border border-slate-700 px-3 py-2">
+          <option value="">Todos los lenguajes</option>
+        </select>
+        <button id="clearFilters" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700">Limpiar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="feed" class="space-y-4"></div>
+</section>
+
+  </main>  <template id="postTemplate">
+    <article class="rounded-2xl border border-slate-800 bg-slate-900/50 overflow-hidden shadow-xl">
+      <div class="p-4 border-b border-slate-800">
+        <h3 class="text-lg font-semibold truncate"></h3>
+        <p class="text-sm text-slate-400 mt-1"></p>
+        <div class="text-xs text-slate-500 mt-2 flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 lang-chip"></span>
+          <time class="ml-auto"></time>
+        </div>
+      </div>
+      <div class="p-0">
+        <pre class="!m-0 max-h-[480px] overflow-auto"><code class="block p-4 text-sm language-plaintext"></code></pre>
+      </div>
+      <div class="p-3 border-t border-slate-800 flex items-center gap-2">
+        <button class="likeBtn px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm">👍 <span class="likeCount">0</span></button>
+        <button class="copyBtn px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm">Copiar</button>
+        <button class="downloadBtn px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm">Descargar</button>
+        <button class="deleteBtn ml-auto px-3 py-1.5 rounded-lg bg-red-600/90 hover:bg-red-600 text-sm">Eliminar</button>
+      </div>
+    </article>
+  </template>  <script>
+    // --- Utilidades ---
+    const $ = (sel, root=document) => root.querySelector(sel);
+    const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+    const LANGUAGES = [
+      "javascript","python","java","c","cpp","csharp","php","go","rust","ruby","kotlin","swift","ts","sql","markup","css","bash","json","yaml"
+    ];
+
+    const EXT_MAP = {
+      javascript: 'js', python: 'py', java: 'java', c: 'c', cpp: 'cpp', csharp: 'cs', php: 'php', go: 'go', rust: 'rs', ruby: 'rb', kotlin: 'kt', swift: 'swift', ts: 'ts', sql: 'sql', markup: 'html', css: 'css', bash: 'sh', json: 'json', yaml: 'yml'
+    };
+
+    const nowISO = () => new Date().toISOString();
+    const fmtDate = iso => new Date(iso).toLocaleString();
+
+    const escapeHTML = (str) => str
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
+
+    // --- Estado ---
+    let state = {
+      snippets: [],
+      search: '',
+      filterLang: ''
+    };
+
+    // --- Storage ---
+    const STORAGE_KEY = 'codesocial.snippets.v1';
+    const saveToStorage = () => localStorage.setItem(STORAGE_KEY, JSON.stringify(state.snippets));
+    const loadFromStorage = () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        state.snippets = raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        console.error('Error al leer storage', e);
+        state.snippets = [];
+      }
+    };
+
+    // --- Render ---
+    function populateFilters() {
+      const filter = $('#filterLang');
+      // Limpiar opciones excepto "Todos"
+      filter.innerHTML = '<option value="">Todos los lenguajes</option>' +
+        LANGUAGES.map(l => <option value="${l}">${l}</option>).join('');
+    }
+
+    function renderFeed() {
+      const feed = $('#feed');
+      feed.innerHTML = '';
+
+      const term = state.search.trim().toLowerCase();
+      const lang = state.filterLang;
+
+      const filtered = state.snippets.filter(s => {
+        const matchesTerm = !term || [s.title, s.description, s.code].some(v => (v||'').toLowerCase().includes(term));
+        const matchesLang = !lang || s.language === lang;
+        return matchesTerm && matchesLang;
+      }).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      if (!filtered.length) {
+        feed.innerHTML = '<div class="p-6 text-center text-slate-400 border border-dashed border-slate-700 rounded-2xl">No hay publicaciones aún.</div>';
+        return;
+      }
+
+      const tpl = $('#postTemplate');
+
+      for (const s of filtered) {
+        const node = tpl.content.cloneNode(true);
+        const article = $('article', node);
+        $('h3', node).textContent = s.title;
+        $('p', node).textContent = s.description || '';
+        $('.lang-chip', node).textContent = s.language;
+        $('time', node).textContent = fmtDate(s.createdAt);
+
+        const codeEl = $('code', node);
+        codeEl.className = block p-4 text-sm language-${s.language};
+        codeEl.innerHTML = escapeHTML(s.code);
+
+        // Botones
+        $('.likeCount', node).textContent = s.likes || 0;
+        $('.likeBtn', node).addEventListener('click', () => {
+          s.likes = (s.likes || 0) + 1;
+          saveToStorage();
+          renderFeed();
+        });
+
+        $('.copyBtn', node).addEventListener('click', async () => {
+          try { await navigator.clipboard.writeText(s.code); toast('Código copiado ✅'); } catch(e) { toast('No se pudo copiar'); }
+        });
+
+        $('.downloadBtn', node).addEventListener('click', () => {
+          const ext = EXT_MAP[s.language] || 'txt';
+          const blob = new Blob([s.code], { type: 'text/plain;charset=utf-8' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = ${slugify(s.title)}.${ext};
+          a.click();
+          URL.revokeObjectURL(a.href);
+        });
+
+        $('.deleteBtn', node).addEventListener('click', () => {
+          if (!confirm('¿Eliminar esta publicación?')) return;
+          state.snippets = state.snippets.filter(x => x.id !== s.id);
+          saveToStorage();
+          renderFeed();
+        });
+
+        feed.appendChild(node);
+      }
+
+      // Reaplicar Prism sobre el feed
+      Prism.highlightAllUnder(feed);
+    }
+
+    function slugify(str) {
+      return (str || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || 'codigo';
+    }
+
+    function toast(msg) {
+      const el = document.createElement('div');
+      el.textContent = msg;
+      el.className = 'fixed left-1/2 -translate-x-1/2 bottom-6 bg-slate-800 border border-slate-700 text-sm px-3 py-2 rounded-xl shadow-lg';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 1800);
+    }
+
+    // --- Eventos UI ---
+    function bindUI() {
+      populateFilters();
+
+      $('#postForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const title = $('#title').value.trim();
+        const language = $('#language').value;
+        const description = $('#description').value.trim();
+        const code = $('#code').value;
+
+        if (!title || !code) { toast('Completa título y código'); return; }
+
+        const post = {
+          id: crypto.randomUUID(),
+          title, language, description, code,
+          createdAt: nowISO(), likes: 0
+        };
+        state.snippets.unshift(post);
+        saveToStorage();
+        (e.target).reset();
+        $('#language').value = language; // conservar selección
+        renderFeed();
+        toast('Publicado ✅');
+      });
+
+      $('#search').addEventListener('input', (e) => { state.search = e.target.value; renderFeed(); });
+      $('#filterLang').addEventListener('change', (e) => { state.filterLang = e.target.value; renderFeed(); });
+      $('#clearFilters').addEventListener('click', () => { state.filterLang = ''; state.search=''; $('#filterLang').value=''; $('#search').value=''; renderFeed(); });
+
+      $('#exportBtn').addEventListener('click', () => {
+        const blob = new Blob([JSON.stringify(state.snippets, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = codesocial_export_${Date.now()}.json;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+
+      $('#importInput').addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const data = JSON.parse(text);
+          if (!Array.isArray(data)) throw new Error('Formato inválido');
+          // Merge por id, manteniendo existentes
+          const byId = new Map(state.snippets.map(s => [s.id, s]));
+          for (const s of data) { if (!byId.has(s.id)) state.snippets.push(s); }
+          saveToStorage();
+          renderFeed();
+          toast('Importado ✅');
+        } catch (err) {
+          console.error(err);
+          toast('Error al importar');
+        } finally {
+          e.target.value = '';
+        }
+      });
+    }
+
+    // --- Init ---
+    loadFromStorage();
+    bindUI();
+    renderFeed();
+  </script></body>
+</html>
